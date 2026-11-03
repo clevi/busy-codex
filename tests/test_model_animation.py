@@ -106,7 +106,7 @@ class ModelAnimationTests(unittest.TestCase):
             self.assertTrue(all(a == 255 for f in frames for a in f[3::4]))
             self.assertEqual(4, len({frames[i] for i in (0, 18, 37, 56)}))
             difference = lambda a, b: sum(abs(x - y) for x, y in zip(a, b))
-            steps = [difference(a, b) for a, b in zip(frames, frames[1:])]
+            steps = [difference(frames[i], frames[i + 1]) for i in range(len(frames) - 1)]
             self.assertLessEqual(difference(frames[-1], frames[0]), max(steps) * 1.25)
 
     def test_detent_direction_boundaries_and_active_identity(self):
