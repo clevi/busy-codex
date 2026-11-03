@@ -363,7 +363,7 @@ def decode_check(blob: bytes, display_frames: list[bytes],
     if blob[:8] == b'bicycle1':
         header_format = '<8sBBBBHHBBIIII'
         size = struct.calcsize(header_format)
-        sig, flags, fw, fh, fmt, max_mask, max_pixel, fps, unused, s_len, f_len, s_cnt, count = struct.unpack(header_format, blob[:size])
+        sig, flags, fw, fh, fmt, _max_mask, max_pixel, fps, _unused, s_len, f_len, s_cnt, count = struct.unpack(header_format, blob[:size])
         assert (fw, fh, fmt) == (w, h, 2) and count == len(display_frames)
         assert len(blob) == size + s_len + f_len and s_cnt == 1
         start, end, offset = struct.unpack('<III', blob[size:size + 12])

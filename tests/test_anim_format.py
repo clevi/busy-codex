@@ -1,7 +1,9 @@
 """Check the wire layout against the firmware's bicycle1 structures."""
 import struct
 import unittest
+
 import animgen
+
 
 class AnimationFormatTest(unittest.TestCase):
     def test_bicycle1_header_full_frame_and_unchanged_mask(self):
