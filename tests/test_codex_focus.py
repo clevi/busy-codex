@@ -52,6 +52,33 @@ class FocusTest(unittest.TestCase):
         state.feed(event(B, window='2'))
         self.assertIsNone(state.current())
 
+    def test_host_events_need_one_visible_primary_window(self):
+        state = FocusState()
+        def host(task, active=True, role='owner'):
+            return ('2026-11-03T18:37:01.227Z info [host-app-server-manager] '
+                    'thread_stream_view_activity_changed '
+                    f'active={str(active).lower()} conversationId={task} '
+                    f'resumeState=resumed streamRole={role}\n')
+        state.feed(host(A))
+        self.assertIsNone(state.current())
+        metadata = event(A).replace('thread_stream_view_activity_changed', 'window_metadata')
+        state.feed(metadata)
+        self.assertEqual(A, state.current())
+        state.feed(host(B, role='observer'))
+        self.assertEqual(A, state.current())
+        state.feed(host(B))
+        state.feed(host(A, False))
+        self.assertEqual(B, state.current())
+        state.feed(host(B, False))
+        self.assertIsNone(state.current())
+        state.feed(host(A))
+        state.feed(metadata.replace('rendererWindowVisible=true', 'rendererWindowVisible=false'))
+        self.assertIsNone(state.current())
+        state.feed(metadata)
+        self.assertEqual(A, state.current())
+        state.feed(metadata.replace('rendererWindowId=1', 'rendererWindowId=2'))
+        self.assertIsNone(state.current())
+
     def test_partial_tail_rotation_and_app_exit(self):
         with tempfile.TemporaryDirectory() as d:
             folder = Path(d) / '2026/09/05'

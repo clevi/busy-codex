@@ -23,8 +23,23 @@ class FocusState:
         self.windows = {}
         self.last_focused = None
         self.sequence = 0
+        self.host_thread = None
+        self.host_events = False
 
     def feed(self, line):
+        # New Desktop lifecycle events have no window identity. Use owner
+        # events only, and reject them in any run with multiple primary windows.
+        if ' info [host-app-server-manager] thread_stream_view_activity_changed ' in line:
+            fields = dict(FIELDS.findall(line))
+            task = fields.get('conversationId', '')
+            if fields.get('streamRole') != 'owner' or not re.fullmatch(UUID, task):
+                return
+            self.host_events = True
+            if fields.get('active') == 'true':
+                self.host_thread = task
+            elif fields.get('active') == 'false' and self.host_thread == task:
+                self.host_thread = None
+            return
         # Other logger messages can provide window focus/visibility evidence,
         # but never change that window's selected task.
         if ' [electron-message-handler] ' not in line:
@@ -45,6 +60,7 @@ class FocusState:
         thread_id = fields.get('conversationId', '')
         if not re.fullmatch(UUID, thread_id):
             return
+        self.host_events = False
         self.sequence += 1
         if fields.get('active') == 'true':
             window['thread_id'], window['seq'] = thread_id, self.sequence
@@ -52,6 +68,11 @@ class FocusState:
             window['thread_id'] = None
 
     def current(self):
+        if self.host_events:
+            if len(self.windows) != 1:
+                return None
+            window = next(iter(self.windows.values()))
+            return self.host_thread if window['visible'] else None
         candidates = [w['thread_id'] for w in self.windows.values()
                       if w['visible'] and w['thread_id']]
         if len(candidates) > 1:

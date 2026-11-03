@@ -66,7 +66,9 @@ def codex_binary(env):
     override = env.get('BUSYBAR_CODEX_BIN')
     if override:
         return override
-    for path in ('/Applications/ChatGPT.app/Contents/Resources/codex',
+    for path in ('/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex',
+                 '/Applications/Codex.app/Contents/Resources/codex-cli/bin/codex',
+                 '/Applications/ChatGPT.app/Contents/Resources/codex',
                  '/Applications/Codex.app/Contents/Resources/codex'):
         if Path(path).is_file():
             return path

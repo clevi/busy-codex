@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Busy Bar `.anim` files ("bicycle0" format) for the agent
+"""Generate Busy Bar `.anim` files ("bicycle1" format) for the agent
 status ring and the independent AI-provider outage overlay.
 
 The ring is drawn PER-PIXEL along the 172px perimeter path at 25 fps and
@@ -215,7 +215,7 @@ def anim_ai_down(n=30):
 
 
 # --------------------------------------------------------------------------
-# "bicycle0" encoder
+# Native animation encoders (current bicycle1 and legacy bicycle0)
 # --------------------------------------------------------------------------
 
 MAX_BLOCKS = 127
@@ -275,8 +275,41 @@ def rle_decompress(data: bytes, blk: int) -> bytes:
 
 
 def encode_anim(display_frames: list[bytes], fps: int = FPS,
-                w: int = W, h: int = H) -> bytes:
-    """Encode BGRA8888 display frames into a .anim blob (one 'default' section)."""
+                w: int = W, h: int = H, format_version: int = 1) -> bytes:
+    """Encode native BGRA frames; bicycle1 is used by current firmware.
+
+    Retain bicycle0 as an explicit option for older firmware. bicycle1 uses
+    per-frame masks rather than the old duration field.
+    """
+    if format_version == 1:
+        if not display_frames or not 1 <= fps <= 255:
+            raise ValueError('Animation needs frames and a valid frame rate')
+        chunks = []
+        max_pixel = 0
+        previous = None
+        for raw in display_frames:
+            if len(raw) != w * h * 4:
+                raise ValueError('Frame dimensions do not match pixel data')
+            if raw == previous:
+                # FullyBlack mask: retain the preceding frame, no pixel bytes.
+                chunks.append(struct.pack('<BHH', 0, 0, 0))
+                continue
+            previous = raw
+            packed = rle_compress(raw, 4)
+            encoding, pixels = (1, packed) if len(packed) < len(raw) else (0, raw)
+            max_pixel = max(max_pixel, len(pixels))
+            # FullyWhite mask (1): every pixel is replaced, including alpha.
+            chunks.append(struct.pack('<BHH', 0x10 | encoding, 0, len(pixels)) + pixels)
+        frames_blob = b''.join(chunks)
+        header_format = '<8sBBBBHHBBIIII'
+        header_size = struct.calcsize(header_format)
+        section = struct.pack('<III', 0, len(display_frames) - 1, header_size + 20) + b'default\0'
+        header = struct.pack(header_format, b'bicycle1', 0, w, h, 2,
+                             0, max_pixel, fps, 0, len(section), len(frames_blob),
+                             1, len(display_frames))
+        return header + section + frames_blob
+    if format_version != 0:
+        raise ValueError('Unsupported animation format version')
     # Interframe RLE: collapse identical consecutive display frames.
     file_frames: list[tuple[bytes, int]] = []
     for frame in display_frames:
@@ -327,6 +360,33 @@ def encode_anim(display_frames: list[bytes], fps: int = FPS,
 def decode_check(blob: bytes, display_frames: list[bytes],
                  w: int = W, h: int = H):
     """Round-trip sanity check of our own encoding."""
+    if blob[:8] == b'bicycle1':
+        header_format = '<8sBBBBHHBBIIII'
+        size = struct.calcsize(header_format)
+        sig, flags, fw, fh, fmt, max_mask, max_pixel, fps, unused, s_len, f_len, s_cnt, count = struct.unpack(header_format, blob[:size])
+        assert (fw, fh, fmt) == (w, h, 2) and count == len(display_frames)
+        assert len(blob) == size + s_len + f_len and s_cnt == 1
+        start, end, offset = struct.unpack('<III', blob[size:size + 12])
+        assert (start, end, offset) == (0, count - 1, size + s_len)
+        assert blob[size + 12:offset] == b'default\0'
+        out = []
+        for _ in range(count):
+            joint, mask_bits, length = struct.unpack('<BHH', blob[offset:offset + 5])
+            offset += 5
+            assert mask_bits == 0 and length <= max_pixel
+            pixels = blob[offset:offset + length]
+            offset += length
+            mask, encoding = joint >> 4, joint & 15
+            if mask == 0:
+                assert out and length == 0
+                out.append(out[-1])
+            else:
+                assert mask == 1 and encoding in (0, 1)
+                raw = rle_decompress(pixels, 4) if encoding == 1 else pixels
+                assert len(raw) == w * h * 4
+                out.append(raw)
+        assert offset == len(blob) and out == display_frames
+        return
     sig, flags, fw, fh, fmt, fps, max_len, s_len, f_len, s_cnt, ff_cnt, df_cnt = \
         struct.unpack("<8sBBBBBHxIIIII", blob[:36])
     assert sig == b"bicycle0" and (fw, fh, fmt) == (w, h, 2) and df_cnt == len(display_frames)

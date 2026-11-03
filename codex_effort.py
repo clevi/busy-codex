@@ -201,7 +201,10 @@ class DesktopIPC:
 
     def request(self, method, params, target=None):
         rid = str(uuid.uuid4())
-        message = {'type': 'request', 'requestId': rid, 'version': 1,
+        # Desktop uses per-method protocol versions. Settings updates gained
+        # activeTurnId/condition support in v2; v1 is rejected during routing.
+        version = 2 if method == 'thread-follower-update-thread-settings' else 1
+        message = {'type': 'request', 'requestId': rid, 'version': version,
                    'sourceClientId': self.client_id, 'method': method,
                    'params': params, 'timeoutMs': 2500}
         if target:

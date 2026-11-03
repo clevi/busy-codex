@@ -16,6 +16,12 @@ def bucket(used=38, minutes=10080, reset=2000):
 
 
 class AccountUsageTest(unittest.TestCase):
+    def test_bundled_desktop_cli_is_discovered_without_shell_path(self):
+        bundled = '/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex'
+        with mock.patch.object(Path, 'is_file', lambda p: str(p) == bundled):
+            self.assertEqual(bundled, usage.codex_binary({'PATH': ''}))
+        self.assertEqual('/custom/codex', usage.codex_binary({'BUSYBAR_CODEX_BIN': '/custom/codex'}))
+
     def test_account_bucket_wins_over_legacy_and_model_specific_buckets(self):
         result = {'rateLimits': bucket(0), 'rateLimitsByLimitId': {
             'codex': bucket(), 'codex_other': bucket(99)}}

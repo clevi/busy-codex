@@ -12,6 +12,19 @@ from adapters import codex_status
 
 
 class EffortTest(unittest.TestCase):
+    def test_desktop_settings_use_current_method_version(self):
+        ipc = effort.DesktopIPC('/unused', lambda _: None)
+        ipc.client_id = 'busybar'
+        sent = []
+        ipc.send = sent.append
+        ipc.receive = lambda: {'type': 'response', 'requestId': sent[-1]['requestId'],
+                               'resultType': 'success'}
+        ipc.request('thread-owner-discovery', {'hostId': 'local', 'conversationId': 'task'})
+        ipc.request('thread-follower-update-thread-settings',
+                    {'conversationId': 'task', 'threadSettings': {'effort': 'medium'}}, target='owner')
+        self.assertEqual([1, 2], [m['version'] for m in sent])
+        self.assertEqual('owner', sent[-1]['targetClientId'])
+
     def state(self):
         return {'latestThreadSettings': {'model': 'gpt-test', 'effort': 'high',
                 'serviceTier': 'fast', 'collaborationMode': {'mode': 'plan',

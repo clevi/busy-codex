@@ -5,6 +5,13 @@
 Historical hardware observations, primarily from firmware 1.1.1.
 Behavior can differ on later firmware; these notes are not requirements for the standalone app.
 
+Firmware 1.3.1 uses the `bicycle1` animation container. The builder now emits
+that format, using the official header, section and per-frame mask layouts.
+Sending `bicycle0` files to that firmware produces the pink missing-artwork
+marker instead of the animation. The encoder retains the older format through
+`encode_anim(..., format_version=0)` for older devices. Format definitions:
+[firmware animation structures](https://github.com/busy-app/busybar-firmware/blob/dev/lib/anim_file/anim_file_format.h).
+
 Things discovered the hard way, verified on-device:
 
 - `rectangle` elements have an **undocumented `border_width`** defaulting
