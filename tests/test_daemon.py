@@ -227,17 +227,40 @@ class AstraIndicatorTest(unittest.TestCase):
         popen.assert_called_once()
         self.assertNotIn("exec", popen.call_args.args[0])
 
-    def test_apps_and_settings_modes_release_agent_canvas(self):
+    def test_only_connected_custom_mode_allows_agent_canvas(self):
         previous_mode = daemon.DEVICE_MODE
         try:
-            self.assertTrue(daemon.handle_device_input_event(("switch", 3)))
-            self.assertFalse(daemon.device_canvas_allowed())
-            self.assertTrue(daemon.handle_device_input_event(("switch", 4)))
-            self.assertFalse(daemon.device_canvas_allowed())
-            self.assertTrue(daemon.handle_device_input_event(("switch", 1)))
-            self.assertTrue(daemon.device_canvas_allowed())
+            with mock.patch.object(daemon, 'DEVICE_INPUT_CONNECTED', True), \
+                 mock.patch.object(daemon, 'astra_app_status', return_value={'active': False}), \
+                 mock.patch.object(daemon, 'MAINTENANCE_UNTIL', 0):
+                for position in (0, 2, 3, 4, 99):
+                    daemon.handle_device_input_event(("switch", position))
+                    self.assertFalse(daemon.device_canvas_allowed(), position)
+                daemon.handle_device_input_event(("switch", 1))
+                self.assertTrue(daemon.device_canvas_allowed())
+                with mock.patch.object(daemon, 'DEVICE_INPUT_CONNECTED', False):
+                    self.assertFalse(daemon.device_canvas_allowed())
+                daemon.DEVICE_MODE = None
+                self.assertFalse(daemon.device_canvas_allowed())
         finally:
             daemon.DEVICE_MODE = previous_mode
+
+    def test_input_disconnect_invalidates_custom_and_wakes_renderer(self):
+        def run_stream(_stop):
+            callback = stream.call_args.kwargs['on_state']
+            callback(False, 'disconnected')
+        with mock.patch.object(daemon, 'DEVICE_MODE', 'CUSTOM'), \
+             mock.patch.object(daemon, 'DEVICE_INPUT_CONNECTED', True), \
+             mock.patch.object(daemon, 'DEVICE_INPUT_ERROR', ''), \
+             mock.patch.object(daemon, 'EFFORT_CONTROLLER', None), \
+             mock.patch.object(daemon.STORE.dirty, 'set') as wake, \
+             mock.patch.object(daemon, 'InputStream') as stream:
+            stream.return_value.run.side_effect = run_stream
+            daemon.device_input_loop('ws://example', mock.Mock())
+            self.assertIsNone(daemon.DEVICE_MODE)
+            self.assertFalse(daemon.DEVICE_INPUT_CONNECTED)
+            self.assertFalse(daemon.device_canvas_allowed())
+            wake.assert_called_once()
 
     def test_ok_refreshes_only_while_astra_app_is_polling(self):
         previous_seen = daemon.ASTRA_APP_LAST_SEEN

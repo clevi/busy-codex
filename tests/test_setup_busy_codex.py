@@ -201,6 +201,7 @@ class MaintenanceTests(unittest.TestCase):
                  mock.patch.object(daemon, 'MAINTENANCE_UNTIL', 0), \
                  mock.patch.object(daemon, 'HUB_TOKEN', ''), \
                  mock.patch.object(daemon, 'DEVICE_MODE', 'CUSTOM'), \
+                 mock.patch.object(daemon, 'DEVICE_INPUT_CONNECTED', True), \
                  mock.patch.object(daemon, 'astra_app_status', return_value={'active': False}):
                 port = server.server_address[1]
                 setup.local_json(port, '/maintenance', {'seconds': 60})
@@ -210,7 +211,7 @@ class MaintenanceTests(unittest.TestCase):
                 transport.clear.assert_called_once_with(daemon.APP_NAME)
                 setup.local_json(port, '/maintenance', {'seconds': 0})
                 self.assertTrue(daemon.device_canvas_allowed())
-                daemon.MAINTENANCE_UNTIL = 1
+                daemon.MAINTENANCE_UNTIL = daemon.time.monotonic() - 1
                 self.assertTrue(daemon.device_canvas_allowed(), 'abandoned leases must expire')
         finally:
             server.shutdown()

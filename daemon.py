@@ -1141,7 +1141,7 @@ def device_canvas_allowed() -> bool:
     if time.monotonic() < MAINTENANCE_UNTIL:
         return False
     with DEVICE_INPUT_LOCK:
-        mode_allowed = DEVICE_MODE not in ("APPS", "SETTINGS")
+        mode_allowed = DEVICE_INPUT_CONNECTED and DEVICE_MODE == "CUSTOM"
     return mode_allowed and not astra_app_status()["active"]
 
 
@@ -1240,14 +1240,18 @@ def device_input_loop(input_url: str, stop: threading.Event,
                       source_address: str | None = None):
     """Observe hardware events through the shared buffered input stream."""
     def update_state(connected, error):
-        global DEVICE_INPUT_CONNECTED, DEVICE_INPUT_ERROR, START_DOWN, CROWN_DOWN
+        global DEVICE_MODE, DEVICE_INPUT_CONNECTED, DEVICE_INPUT_ERROR, START_DOWN, CROWN_DOWN
         with DEVICE_INPUT_LOCK:
+            changed = DEVICE_INPUT_CONNECTED != connected
             DEVICE_INPUT_CONNECTED = connected
             DEVICE_INPUT_ERROR = error
             if not connected:
+                DEVICE_MODE = None
                 START_DOWN = CROWN_DOWN = False
                 if EFFORT_CONTROLLER:
                     EFFORT_CONTROLLER.cancel_menu()
+        if changed:
+            STORE.dirty.set()
 
     InputStream(input_url, handle_device_input_event,
                 source_address=source_address, on_state=update_state,

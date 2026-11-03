@@ -96,8 +96,10 @@ Legacy watchdog-started workers may also log to `~/.claude/busybar-daemon.log`
 and `~/.claude/busybar-codex-adapter.log`.
 
 Open a sent task in foreground Codex Desktop or the supported native CLI,
-move the Bar switch to **CUSTOM**, then press Crown. APPS/SETTINGS suppress the
-dashboard. If mode is unknown, move the switch to another position and back.
+move the Bar switch to **CUSTOM**, then press Crown. The dashboard draws only
+while CUSTOM is confirmed by a connected input stream. BUSY, OFF, APPS,
+SETTINGS and unknown modes suppress it. After startup or a disconnected input
+stream, move the switch to another position and back to CUSTOM if needed.
 A connected input stream and a running process are not proof of visibility;
 inspect the screenshots and confirm the physical controls.
 
