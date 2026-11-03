@@ -789,6 +789,8 @@ def status_snapshot() -> dict:
             from adapters.codex_status import prettify_model
             reasoning_effort = settings["effort"]
             label_color = model_animation.model_color(settings["model"])
+            # TODO(full-model-name): preserve the full model identity before layout.
+            # See docs/MODEL_NAME_LAYOUT_TODO.md; implementation is deferred.
             label = shorten_model_label(prettify_model(settings["model"]),
                                         settings["effort"], LABEL_MAX_PX)
         if settings.get("fast") is not None:
