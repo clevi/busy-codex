@@ -49,6 +49,13 @@ effort. Long names page through in full. See the [model picker preview](docs/img
 
 ![GPT-6 Astra, Sol and Luna model cards](docs/img/gpt6-models.gif)
 
+GPT-6.1 Terra uses jade mountain peaks and a softly shimmering turquoise river.
+GPT-6.1 Sol uses a golden sun, an amber corona and gently orbiting sparks.
+Both use the same 16×13 portrait area on the 72×16 canvas, with seamless
+three-second loops at 25 fps and matching picker/dashboard accent colors.
+
+![GPT-6.1 Terra and Sol model cards](docs/img/gpt61-models.gif)
+
 Changes apply to subsequent turns and preserve Plan mode. They leave a running answer alone and do not change global defaults.
 The label appears after Codex confirms the setting.
 

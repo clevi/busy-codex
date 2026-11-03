@@ -67,6 +67,7 @@ def export(output, scale=8):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     models = ['gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna',
+              'gpt-6.1-terra', 'gpt-6.1-sol',
               'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol',
               'gpt-5.3-codex-spark', 'gpt-5.5', 'gpt-reserve']
     menus = [dict(model=model, index=i, count=len(models), changed_at=0, until=12,
@@ -95,6 +96,22 @@ def export(output, scale=8):
     for column, index in enumerate((0, 18, 37, 56)):
         phases.paste(sheet(index).crop((0, 0, 72 * scale, 58 * scale)), (column * 72 * scale, 0))
     phases.save(output / 'gpt6-phases.png')
+    # Saving a GIF can alter Pillow's palette on its first input frame.
+    # Re-render these cards instead of reusing frames from the previous save.
+    duo_rgb = [sheet(i).crop((0, 63 * scale, 72 * scale, 100 * scale))
+               for i in range(animation.FRAMES)]
+    duo_atlas = Image.new('RGB', (72 * scale, 37 * scale * 8))
+    for row, i in enumerate(range(0, animation.FRAMES, 10)):
+        duo_atlas.paste(duo_rgb[i], (0, row * 37 * scale))
+    duo_palette = duo_atlas.quantize(colors=256)
+    duo = [f.quantize(palette=duo_palette, dither=Image.Dither.NONE) for f in duo_rgb]
+    duo[0].save(output / 'gpt61-models.gif', save_all=True, append_images=duo[1:],
+                duration=40, loop=0, optimize=False, disposal=1)
+    phases61 = Image.new('RGB', (72 * 4 * scale, 37 * scale))
+    for column, index in enumerate((0, 18, 37, 56)):
+        phases61.paste(sheet(index).crop((0, 63 * scale, 72 * scale, 100 * scale)),
+                       (column * 72 * scale, 0))
+    phases61.save(output / 'gpt61-phases.png')
     # A single-card walkthrough: browse -> wait for Codex -> acknowledged model.
     walkthrough = []
     for i, phase in enumerate(('browse', 'browse', 'browse', 'saving', 'confirmed')):

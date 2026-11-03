@@ -33,10 +33,13 @@ PROFILES = {
     'astra': Profile(4, (175, 137, 255), 'galaxy'),
     'sol6': Profile(3, (255, 151, 48), 'flame'),
     'luna6': Profile(1, (255, 222, 132), 'moon'),
+    'terra61': Profile(2, (90, 214, 170), 'landscape'),
+    'sol61': Profile(3, (255, 195, 106), 'sun'),
 }
 MODEL_PROFILES = {
     'gpt-6-astra': 'astra', 'gpt-5.6-sol': 'sol',
     'gpt-6-sol': 'sol6', 'gpt-6-luna': 'luna6',
+    'gpt-6.1-terra': 'terra61', 'gpt-6.1-sol': 'sol61',
     'gpt-5.6-terra': 'terra', 'gpt-5.6-luna': 'luna',
     'gpt-5.5': 'classic', 'gpt-5.3-codex-spark': 'spark',
 }
@@ -129,10 +132,63 @@ def _generation_six(profile, x, y, phase):
         x, y, 12 + round(math.sin(phase)), 3 + round(math.cos(phase)), phase))
 
 
+def _generation_six_one(profile, x, y, phase):
+    """Quiet pixel landscapes and sunlight within the existing 16x13 portrait."""
+    base = tuple(round(c * .022) for c in profile.color)
+    if x >= 16 or y >= 13:
+        return base
+    if profile.motif == 'landscape':
+        color = base
+        # A distant teal ridge, then a larger faceted jade peak. Integer
+        # silhouettes stay steady while light travels across the scene.
+        far_top = 5 + abs(x - 11)
+        if 6 <= x <= 15 and far_top <= y <= 11:
+            color = (29, 95, 94) if x > 11 else (46, 137, 119)
+            if y <= far_top + 1 and y <= 7:
+                color = (124, 198, 167)
+        near_top = 2 + abs(x - 6)
+        if 1 <= x <= 12 and near_top <= y <= 11:
+            color = (39, 116, 90) if x > 6 else (72, 174, 117)
+            if y <= near_top + 1 and y <= 5:
+                glint = .5 + .5 * math.cos(phase - x * .45)
+                color = _mix((155, 220, 178), (216, 248, 214), glint * .7)
+        # Dark water at the foot of the peaks with low-contrast moving glints.
+        if 2 <= x <= 14 and 10 <= y <= 12:
+            water = .5 + .5 * math.sin(x * .7 - phase + y * 1.7)
+            color = _mix((15, 58, 68), (43, 136, 139), water * .55)
+            if (x + y * 2) % 5 == 0:
+                color = _mix(color, (124, 220, 196), water * .5)
+        # One quiet sky light, well clear of the title and class marks.
+        if (x, y) == (13, 2):
+            color = _mix((74, 113, 113), (190, 218, 177), .4 + .2 * math.sin(phase))
+        return color
+
+    dx, dy = x - 7.5, y - 6
+    radius, angle = math.hypot(dx, dy), math.atan2(dy, dx)
+    # Eight soft rays turn through one symmetric step per seamless loop.
+    ray = (.5 + .5 * math.cos(angle * 8 - phase)) ** 5
+    corona = math.exp(-((radius - 4.6) / 1.0) ** 2) * (.16 + .5 * ray)
+    color = _mix(base, (240, 126, 43), corona)
+    coverage = max(0., min(1., 3.7 - radius))
+    sunlight = max(0., min(1., .7 - dx * .10 - dy * .08))
+    core = _mix((246, 153, 53), (255, 241, 181), sunlight)
+    color = _mix(color, core, coverage)
+    # Opposing pinpoints orbit outside the disk, without flashing or trails.
+    for offset in (0, math.pi):
+        a = phase + offset
+        distance = math.hypot(x - (7.5 + 5.6 * math.cos(a)),
+                              y - (6 + 5.0 * math.sin(a)))
+        spark = max(0., 1 - distance) * .65
+        color = _mix(color, (255, 216, 139), spark)
+    return color
+
+
 def background(key, x, y, frame):
     profile = PROFILES[key]
     rank = profile.rank
     phase = 2 * math.pi * (frame % FRAMES) / FRAMES
+    if profile.motif in ('landscape', 'sun'):
+        return _generation_six_one(profile, x, y, phase)
     if profile.motif:
         return _generation_six(profile, x, y, phase)
     dx, dy = x - 7.5, y - 6.5
@@ -204,6 +260,10 @@ def transition_frame(key, index, direction=1, confirmed=False):
             strength *= .55 + .45 * math.sin(x * 1.7 - phase * 24) ** 2
         elif profile.motif == 'moon':
             strength = strength ** 2 * .7
+        elif profile.motif == 'landscape':
+            strength *= .55 + .2 * math.cos(x * .3 - phase * 2 * math.pi)
+        elif profile.motif == 'sun':
+            strength *= .7 + .15 * math.sin(x * .2 + phase * math.pi)
         return tuple(round(c * strength * (1 - phase)) for c in accent)
     # Only the two edge lanes are opaque; don't obscure the text or its counter.
     data = bytearray(W * H * 4)

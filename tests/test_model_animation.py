@@ -90,6 +90,25 @@ class ModelAnimationTests(unittest.TestCase):
         self.assertEqual('effort_clear.anim', daemon.model_menu_animation_elements(None)[0]['path'])
         self.assertEqual('effort_clear.anim', daemon.model_menu_transition_elements(None)[0]['path'])
 
+    def test_six_one_portraits_loop_without_disturbing_text_region(self):
+        keys = [animation.profile_key(model) for model in ('gpt-6.1-terra', 'gpt-6.1-sol')]
+        self.assertNotIn('neutral', keys)
+        self.assertNotEqual(keys[0], keys[1])
+        self.assertNotEqual(animation.PROFILES[keys[0]].hex, animation.PROFILES[keys[1]].hex)
+        for key in keys:
+            frames = [animation.frame(key, i) for i in range(animation.FRAMES)]
+            # All motion stays inside the portrait; title, hint and class-mark
+            # backgrounds remain still and opaque throughout the loop.
+            quiet = lambda f: b''.join(f[(y * 72 + x) * 4:(y * 72 + x + 1) * 4]
+                                      for y in range(16) for x in range(72)
+                                      if x >= 16 or y >= 13)
+            self.assertEqual(1, len({quiet(f) for f in frames}))
+            self.assertTrue(all(a == 255 for f in frames for a in f[3::4]))
+            self.assertEqual(4, len({frames[i] for i in (0, 18, 37, 56)}))
+            difference = lambda a, b: sum(abs(x - y) for x, y in zip(a, b))
+            steps = [difference(a, b) for a, b in zip(frames, frames[1:])]
+            self.assertLessEqual(difference(frames[-1], frames[0]), max(steps) * 1.25)
+
     def test_detent_direction_boundaries_and_active_identity(self):
         menu = ModelMenu([dict(model='one'), dict(model='two')], 'one', 10)
         self.assertTrue(menu.snapshot()['active'])
