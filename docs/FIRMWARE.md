@@ -7,7 +7,7 @@ Behavior can differ on later firmware; these notes are not requirements for the 
 
 Firmware 1.3.1 uses the `bicycle1` animation container. The builder now emits
 that format, using the official header, section and per-frame mask layouts.
-Sending `bicycle0` files to that firmware produces the pink missing-artwork
+Sending `bicycle0` files to that firmware produces a pink missing-artwork
 marker instead of the animation. The encoder retains the older format through
 `encode_anim(..., format_version=0)` for older devices. Format definitions:
 [firmware animation structures](https://github.com/busy-app/busybar-firmware/blob/dev/lib/anim_file/anim_file_format.h).
