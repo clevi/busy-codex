@@ -25,20 +25,35 @@ class FocusState:
         self.sequence = 0
         self.host_thread = None
         self.host_events = False
+        self.pending_host_thread = None
 
     def feed(self, line):
+        if ' info [host-app-server-manager] thread_stream_role_changed ' in line:
+            fields = dict(FIELDS.findall(line))
+            task = fields.get('conversationId', '')
+            if task == self.pending_host_thread and fields.get('role') == 'owner':
+                self.host_thread = task
+                self.pending_host_thread = None
+            return
         # New Desktop lifecycle events have no window identity. Use owner
         # events only, and reject them in any run with multiple primary windows.
         if ' info [host-app-server-manager] thread_stream_view_activity_changed ' in line:
             fields = dict(FIELDS.findall(line))
             task = fields.get('conversationId', '')
-            if fields.get('streamRole') != 'owner' or not re.fullmatch(UUID, task):
+            if not re.fullmatch(UUID, task):
+                return
+            role = fields.get('streamRole')
+            if role not in ('owner', 'null'):
                 return
             self.host_events = True
             if fields.get('active') == 'true':
-                self.host_thread = task
-            elif fields.get('active') == 'false' and self.host_thread == task:
-                self.host_thread = None
+                self.pending_host_thread = task if role == 'null' else None
+                self.host_thread = task if role == 'owner' else None
+            elif fields.get('active') == 'false':
+                if self.pending_host_thread == task:
+                    self.pending_host_thread = None
+                if self.host_thread == task:
+                    self.host_thread = None
             return
         # Other logger messages can provide window focus/visibility evidence,
         # but never change that window's selected task.

@@ -22,6 +22,28 @@ def event(task, active=True, window='1', focused=True, appearance='primary'):
 
 
 class FocusTest(unittest.TestCase):
+    def test_host_view_waits_for_matching_owner_after_resume(self):
+        state = FocusState()
+        state.feed(event(A).replace('thread_stream_view_activity_changed', 'window_metadata'))
+        def view(task, active='true'):
+            return (f'2026-11-04T01:58:51.017Z info [host-app-server-manager] '
+                    f'thread_stream_view_activity_changed active={active} '
+                    f'conversationId={task} resumeState=needs_resume streamRole=null\n')
+        def role(task):
+            return (f'2026-11-04T01:58:51.584Z info [host-app-server-manager] '
+                    f'thread_stream_role_changed conversationId={task} role=owner\n')
+        state.feed(view(A))
+        self.assertIsNone(state.current())
+        state.feed(role(B))
+        self.assertIsNone(state.current())
+        state.feed(role(A))
+        self.assertEqual(A, state.current())
+        state.feed(view(B))
+        self.assertIsNone(state.current())
+        state.feed(view(B, 'false'))
+        state.feed(role(B))
+        self.assertIsNone(state.current())
+
     def test_background_chatter_never_selects_a_task(self):
         state = FocusState()
         state.feed(event(A))
